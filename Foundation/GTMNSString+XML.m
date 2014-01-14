@@ -89,6 +89,12 @@ GTM_INLINE GTMXMLCharMode XMLModeForUnichar(UniChar c) {
   return kGTMXMLCharModeInvalid;
 } // XMLModeForUnichar
 
+GTM_INLINE BOOL UnicharsAreSurrogatePair(UniChar high, UniChar low) {
+  // High surrogates are #xD800-#xDBFF
+  // Low surrogates are #xDC00-#xDFFF
+  // A valid surrogate pair is one high surrogate followed by one low
+  return (0xd800 <= high && high <= 0xdbff) && (0xdc00 <= low && low <= 0xdfff);
+} // UnicharsAreSurrogatePair
 
 static NSString *AutoreleasedCloneForXML(NSString *src, BOOL escaping) {
   //
@@ -128,6 +134,15 @@ static NSString *AutoreleasedCloneForXML(NSString *src, BOOL escaping) {
   NSUInteger goodRunLength = 0;
   
   for (NSUInteger i = 0; i < length; ++i) {
+
+    // short circuit the XML validator when dealing with UTF-16 surrogate pairs
+    if (i < length - 1 && UnicharsAreSurrogatePair(buffer[i], buffer[i+1])) {
+      // this is a valid surrogate pair, so we skip the next character and
+      // increase the run length accordingly
+      ++i;
+      goodRunLength += 2;
+      continue;
+    }
     
     GTMXMLCharMode cMode = XMLModeForUnichar(buffer[i]);
     
